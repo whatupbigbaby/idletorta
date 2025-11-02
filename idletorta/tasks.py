@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -119,3 +121,70 @@ def format_tasks(tasks: Iterable[Task]) -> str:
         checkbox = "[x]" if task.completed else "[ ]"
         lines.append(f"{checkbox} {section_prefix}{task.description}")
     return "\n".join(lines)
+
+
+_CHECKBOX_PATTERN = re.compile(r"^(\s*[-*+]\s*\[)([ xX-])(\])(.*)$")
+
+
+def _replace_checkbox(line: str, completed: bool) -> str:
+    match = _CHECKBOX_PATTERN.match(line)
+    if not match:
+        raise ValueError("The specified line does not contain a Markdown task checkbox.")
+
+    prefix, _, closing, suffix = match.groups()
+    marker = "x" if completed else " "
+    return f"{prefix}{marker}{closing}{suffix}"
+
+
+def update_task_completion(
+    path: str | Path,
+    line_numbers: Sequence[int],
+    *,
+    completed: bool,
+    encoding: str = "utf-8",
+) -> List[Task]:
+    """Update the completion status for the provided task line numbers.
+
+    Parameters
+    ----------
+    path:
+        Path to the Markdown file containing the task list.
+    line_numbers:
+        One or more 1-based line numbers pointing to checklist items within the file.
+    completed:
+        Whether the checkbox should be marked as completed.
+    encoding:
+        File encoding used when reading and writing the Markdown file.
+
+    Returns
+    -------
+    list of :class:`Task`
+        The updated task list after writing the changes to disk.
+    """
+
+    if not line_numbers:
+        raise ValueError("At least one line number must be provided for updating tasks.")
+
+    file_path = Path(path)
+    text = file_path.read_text(encoding=encoding)
+    newline = "\n" if text.endswith("\n") else ""
+    lines = text.splitlines()
+
+    tasks = parse_markdown_tasks(text)
+    tasks_by_line = {task.line_number: task for task in tasks}
+
+    missing = [str(number) for number in line_numbers if number not in tasks_by_line]
+    if missing:
+        missing_str = ", ".join(missing)
+        raise ValueError(f"Line number(s) do not reference tasks: {missing_str}")
+
+    for number in line_numbers:
+        if number <= 0 or number > len(lines):
+            raise ValueError(f"Line number out of range: {number}")
+        index = number - 1
+        lines[index] = _replace_checkbox(lines[index], completed)
+
+    updated_text = "\n".join(lines) + newline
+    file_path.write_text(updated_text, encoding=encoding)
+
+    return parse_markdown_tasks(updated_text)

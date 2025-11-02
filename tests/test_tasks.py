@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from idletorta.tasks import format_tasks, load_tasks, parse_markdown_tasks
+from idletorta.tasks import (
+    format_tasks,
+    load_tasks,
+    parse_markdown_tasks,
+    update_task_completion,
+)
 
 
 def test_parse_markdown_tasks_extracts_sections() -> None:
@@ -65,6 +70,30 @@ def test_format_tasks_creates_human_readable_output() -> None:
 
     task = parse_markdown_tasks(markdown)[0]
     assert format_tasks([task]) == "[x] [Section] Finished task"
+
+
+def test_update_task_completion_marks_tasks(tmp_path: Path) -> None:
+    data = """
+## Section
+- [ ] Pending work
+- [x] Completed work
+    """.strip()
+    file_path = tmp_path / "tasks.md"
+    file_path.write_text(data)
+
+    updated_tasks = update_task_completion(file_path, [2], completed=True)
+
+    assert any(task.line_number == 2 and task.completed for task in updated_tasks)
+    assert "[x] Pending work" in file_path.read_text()
+
+
+def test_update_task_completion_rejects_invalid_line(tmp_path: Path) -> None:
+    markdown = "- [ ] Valid task\n"
+    file_path = tmp_path / "tasks.md"
+    file_path.write_text(markdown)
+
+    with pytest.raises(ValueError, match="do not reference tasks"):
+        update_task_completion(file_path, [2], completed=True)
 
 
 if __name__ == "__main__":  # pragma: no cover - allow running module directly for debugging
