@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from .tasks import Task, format_tasks, load_tasks
+from .tasks import Task, format_tasks, load_tasks, update_task_status
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -34,6 +34,16 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    parser.add_argument(
+        "--set-status",
+        nargs=2,
+        metavar=("LINE", "STATUS"),
+        help=(
+            "Update the checkbox on the specified line to the provided status before "
+            "listing tasks. STATUS accepts values like 'complete' or 'pending'."
+        ),
+    )
+
     return parser
 
 
@@ -52,9 +62,48 @@ def _filter_tasks(tasks: Iterable[Task], *, completed: bool | None, sections: Se
     return filtered
 
 
+_TRUTHY_STATUS_VALUES = {"complete", "completed", "done", "true", "1", "finished", "yes"}
+_FALSY_STATUS_VALUES = {"pending", "incomplete", "todo", "false", "0", "open", "no"}
+
+
+def _normalize_status(value: str) -> bool:
+    normalized = value.strip().lower()
+
+    if normalized in _TRUTHY_STATUS_VALUES:
+        return True
+    if normalized in _FALSY_STATUS_VALUES:
+        return False
+
+    allowed = ", ".join(sorted(_TRUTHY_STATUS_VALUES | _FALSY_STATUS_VALUES))
+    raise ValueError(f"STATUS must be one of: {allowed}.")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    if args.set_status:
+        line_argument, status_argument = args.set_status
+
+        try:
+            line_number = int(line_argument)
+        except ValueError:
+            parser.error("LINE must be an integer.")
+
+        if line_number < 1:
+            parser.error("LINE must be a positive integer.")
+
+        try:
+            completed = _normalize_status(status_argument)
+        except ValueError as exc:
+            parser.error(str(exc))
+
+        try:
+            update_task_status(args.file, line_number=line_number, completed=completed)
+        except FileNotFoundError:
+            parser.error(f"Task file not found: {args.file}")
+        except ValueError as exc:
+            parser.error(str(exc))
 
     try:
         tasks = load_tasks(args.file)
