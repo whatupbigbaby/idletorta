@@ -1,0 +1,15 @@
+[project]
+name = "idletorta"
+version = "0.1.0"
+description = "Utilities for working with task lists stored in Markdown."
+readme = "README.md"
+authors = [{name = "Idle Torta Maintainers"}]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+idletorta = "idletorta.__main__:main"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
