@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from idletorta.tasks import format_tasks, load_tasks, parse_markdown_tasks
+from idletorta.tasks import format_tasks, load_tasks, parse_markdown_tasks, update_task_status
 
 
 def test_parse_markdown_tasks_extracts_sections() -> None:
@@ -65,6 +65,15 @@ def test_format_tasks_creates_human_readable_output() -> None:
 
     task = parse_markdown_tasks(markdown)[0]
     assert format_tasks([task]) == "[x] [Section] Finished task"
+
+
+def test_update_task_status_marks_line_completed(tmp_path: Path) -> None:
+    file_path = tmp_path / "tasks.md"
+    file_path.write_text("- [ ] Initial task\n")
+
+    update_task_status(file_path, line_number=1, completed=True)
+
+    assert file_path.read_text() == "- [x] Initial task\n"
 
 
 if __name__ == "__main__":  # pragma: no cover - allow running module directly for debugging

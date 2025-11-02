@@ -8,6 +8,7 @@ integrate Markdown-based planning documents into scripts or other tooling.
 - Parse Markdown checklists into structured Python objects
 - Track the section (heading) a task belongs to
 - Command line interface for filtering and listing tasks
+- Update task completion status directly from the command line
 
 ## Quick start
 After installing the project in an environment with Python 3.11 or newer, tasks can be
@@ -19,3 +20,9 @@ idletorta --file tasks.md --pending
 
 This command reads tasks from `tasks.md` and prints only the incomplete entries. Use
 `--completed` to see completed items or omit both flags to show everything.
+
+To update a task's checkbox on line 12 and immediately view the results, run:
+
+```bash
+idletorta --file tasks.md --set-status 12 complete
+```

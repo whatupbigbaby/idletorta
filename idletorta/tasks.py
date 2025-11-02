@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -119,3 +120,37 @@ def format_tasks(tasks: Iterable[Task]) -> str:
         checkbox = "[x]" if task.completed else "[ ]"
         lines.append(f"{checkbox} {section_prefix}{task.description}")
     return "\n".join(lines)
+
+
+_CHECKBOX_PATTERN = re.compile(r"^(\s*[-*+]\s+\[)( |x|X|\-)(\])")
+
+
+def update_task_status(
+    path: str | Path,
+    *,
+    line_number: int,
+    completed: bool,
+    encoding: str = "utf-8",
+) -> None:
+    """Update the completion status of a checklist item in a Markdown file."""
+
+    if line_number < 1:
+        raise ValueError("Line numbers must be greater than or equal to 1.")
+
+    file_path = Path(path)
+    text = file_path.read_text(encoding=encoding)
+    lines = text.splitlines(keepends=True)
+
+    try:
+        current_line = lines[line_number - 1]
+    except IndexError as exc:  # pragma: no cover - defensive programming
+        raise ValueError(f"Line number {line_number} is out of range.") from exc
+
+    match = _CHECKBOX_PATTERN.search(current_line)
+    if not match:
+        raise ValueError(f"Line {line_number} does not contain a checklist item.")
+
+    checkbox_state = "x" if completed else " "
+    lines[line_number - 1] = f"{match.group(1)}{checkbox_state}{match.group(3)}{current_line[match.end():]}"
+
+    file_path.write_text("".join(lines), encoding=encoding)
